@@ -50,21 +50,13 @@ class SSH
 
     pid, inn, out, err = popen4(*cmd)
 
-    status, result = empty_streams pid, inn, out, err
+    status, stdout, stderr = empty_streams pid, inn, out, err
 
-    if status.success? then
-      {
-        stdout: result.join,
-        stderr: nil,
-        status: status.exitstatus
-      }
-    else
-      {
-        stdout: nil,
-        stderr: result.join,
-        status: status.exitstatus
-      }
-    end
+    {
+      stdout: stdout.join,
+      stderr: stderr.join,
+      status: status.exitstatus
+    }
   ensure
     inn.close rescue nil
     out.close rescue nil
@@ -72,7 +64,8 @@ class SSH
   end
 
   def empty_streams pid, inn, out, err
-    result  = []
+    stdout  = []
+    stderr  = []
     inn.sync   = true
     streams    = [out, err]
     out_stream = {
@@ -101,16 +94,11 @@ class SSH
         data = stream.readpartial(1024)
         out_stream[stream].write data
 
-        if stream == err and data =~ sudo_prompt then
-          inn.puts sudo_password
-          data << "\n"
-          $stderr.write "\n"
-        end
-
-        result << data
+        stdout << data unless stream == err
+        stderr << data if stream == err
       end
     end
 
-    return status, result
+    return status, stdout, stderr
   end
 end
