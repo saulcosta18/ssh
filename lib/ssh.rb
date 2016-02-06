@@ -52,13 +52,19 @@ class SSH
 
     status, result = empty_streams pid, inn, out, err
 
-    unless status.success? then
-      e = status.exitstatus
-      c = cmd.join ' '
-      raise(CommandFailedError.new(status), "Failed with status #{e}: #{c}")
+    if status.success? then
+      {
+        stdout: result.join,
+        stderr: nil,
+        status: status.exitstatus
+      }
+    else
+      {
+        stdout: nil,
+        stderr: result.join,
+        status: status.exitstatus
+      }
     end
-
-    result.join
   ensure
     inn.close rescue nil
     out.close rescue nil
