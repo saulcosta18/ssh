@@ -27,19 +27,15 @@ class SSH
   include Open4
 
   attr_accessor :ssh_cmd, :ssh_flags, :target_host, :target_dir
-  attr_accessor :sudo_prompt, :sudo_password
 
   def initialize target_host = nil, target_dir = nil
     self.ssh_cmd       = "ssh"
     self.ssh_flags     = []
     self.target_host   = target_host
     self.target_dir    = target_dir
-
-    self.sudo_prompt   = /^Password:/
-    self.sudo_password = nil
   end
 
-  def run command
+  def run command, stdin: nil
     command = "cd #{target_dir} && #{command}" if target_dir
     cmd     = [ssh_cmd, ssh_flags, target_host, command].flatten
 
@@ -50,11 +46,14 @@ class SSH
 
     pid, inn, out, err = popen4(*cmd)
 
-    status, stdout, stderr = empty_streams pid, inn, out, err
+    inn.puts stdin if stdin
+    inn.close if stdin
+
+    status, stdout, stderr = empty_streams pid, inn, out, err, stdin.nil?
 
     {
       stdout: stdout.join,
-      stderr: stderr.join,
+      stderr: stderr.join.gsub(/Warning: Permanently added.+to the list of known hosts\.\s+/, ''),
       status: status.exitstatus
     }
   ensure
@@ -63,10 +62,10 @@ class SSH
     err.close rescue nil
   end
 
-  def empty_streams pid, inn, out, err
+  def empty_streams pid, inn, out, err, sync
     stdout  = []
     stderr  = []
-    inn.sync   = true
+    inn.sync   = true if sync
     streams    = [out, err]
     out_stream = {
       out => $stdout,
