@@ -1,0 +1,14 @@
+LineLength:
+  Max: 99
+
+Metrics/MethodLength:
+  Max: 30
+
+Style/FormatString:
+  Enabled: false
+
+Metrics/MethodComplexity:
+  Severity: warning
+
+Metrics/CyclomaticComplexity:
+  Severity: warning

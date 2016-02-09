@@ -51,26 +51,24 @@ class SSH
 
     status, stdout, stderr = empty_streams pid, inn, out, err, stdin.nil?
 
-    {
-      stdout: stdout.join,
-      stderr: stderr.join.gsub(/Warning: Permanently added.+to the list of known hosts\.\s+/, ''),
-      status: status.exitstatus
-    }
+    stdout = stdout.join.gsub(/\n\n$/, "\n")
+    stderr = stderr
+             .join
+             .gsub(/\n\n$/, "\n")
+             .gsub(/Warning: Permanently added.+to the list of known hosts\.\s+/, '')
+
+    { stdout: stdout, stderr: stderr, status: status.exitstatus }
   ensure
     inn.close rescue nil
     out.close rescue nil
     err.close rescue nil
   end
 
-  def empty_streams pid, inn, out, err, sync
+  def empty_streams(pid, inn, out, err, sync)
     stdout  = []
     stderr  = []
     inn.sync   = true if sync
     streams    = [out, err]
-    out_stream = {
-      out => $stdout,
-      err => $stderr,
-    }
 
     # Handle process termination ourselves
     status = nil
@@ -78,20 +76,19 @@ class SSH
       status = Process.waitpid2(pid).last
     end
 
-    until streams.empty? do
+    until streams.empty?
       # don't busy loop
       selected, = select streams, nil, nil, 0.1
 
-      next if selected.nil? or selected.empty?
+      next if selected.nil? || selected.empty?
 
       selected.each do |stream|
-        if stream.eof? then
+        if stream.eof?
           streams.delete stream if status # we've quit, so no more writing
           next
         end
 
         data = stream.readpartial(1024)
-        out_stream[stream].write data
 
         stdout << data unless stream == err
         stderr << data if stream == err
